@@ -28,6 +28,7 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -46,7 +47,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import static org.springframework.web.reactive.function.BodyExtractors.toMono;
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
+import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
 
 @SpringBootApplication
 public class FlixFluxServiceApplication {
@@ -133,6 +136,7 @@ class FluxFlixRestController {
     }
 
     @GetMapping
+    @PostMapping
     Flux<Movie> all() {
         return fluxFlixService.all();
     }
@@ -198,6 +202,13 @@ class WebConfiguration {
                 
                 .route(GET("/movies"),
                         serverRequest -> ServerResponse.ok().body(ffs.all(), Movie.class))
+                .andRoute(POST("/json"),
+                        serverRequest -> {
+                            Mono<Movie> movieMono = serverRequest.body(toMono(Movie.class));
+                            System.out.println("a Mono<Movie>: " + movieMono.toString());
+                            ffs.insertAll(movieMono);
+                            return ServerResponse.ok().body(movieMono, Movie.class);
+                        })
                 .andRoute(GET("/movies/{id}"),
                         serverRequest -> ServerResponse.ok().body(ffs.byId(serverRequest.pathVariable("id")), Movie.class))
                 .andRoute(GET("/movies/{id}/events"), serverRequest ->
@@ -241,6 +252,10 @@ class FluxFlixService {
         return this.movieRepository.findAll();
     }
 
+    public void insert(Mono<Movie> monoMovie) {
+        System.out.println("inserting a monoMovie");
+        this.movieRepository.insert(monoMovie);
+    }
 }
 
 interface MovieRepository extends ReactiveMongoRepository<Movie, String> {
